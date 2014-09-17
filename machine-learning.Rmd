@@ -1,0 +1,94 @@
+---
+title: "Machine Learning Project"
+output: html_document
+---
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+
+
+## Data 
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment. 
+
+## Loading Data
+
+```{r}
+trainingRAW <- read.csv('pml-training.csv', na.strings= c("NA",""))
+testingRAW <- read.csv('pml-testing.csv', na.strings= c("NA",""))
+```
+
+## Cleaning Data
+
+Data set has a lot of columns with NA.  We strip them and also remove some columns that clearly not needed for prediction (i.e. raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp, etc.) 
+
+```{r}
+training <- trainingRAW[, (colSums(is.na(trainingRAW)) == 0)]
+testing <- testingRAW[, (colSums(is.na(trainingRAW)) == 0)]
+
+training <- training[, !grepl("timestamp|window|user_name|X",names(training))]
+testing <- testing[, !grepl("timestamp|window|user_name|X",names(testing))]
+```
+
+## Create Test vs. Validation Set
+
+```{r}
+library(caret)
+set.seed(12345)
+inTrain = createDataPartition(y = training$classe, p = 0.7, list = FALSE)
+trainData = training[inTrain, ]
+validationData = training[-inTrain, ]
+```
+
+## Preprocessing and Model Selection
+
+As shown below, there's signicant # of variables correlated.  Therefore, we use preprocess data with Principal Component Analysis (PCA).  Random forest method is used since Random forests can be used to rank the importance of variables in a regression or classification problem in a natural way.
+
+```{r}
+M<-abs(cor(trainData[,-53]))
+diag(M)<-0
+which(M>0.8, arr.ind=T)
+```
+
+```{r}
+preProc <- preProcess(trainData[, -53], method = "pca")
+trainPC <- predict(preProc, trainData[, -53])
+testPC <- predict(preProc, testing[, -53])
+validationPC <- predict(preProc, validationData[, -53])
+modelFit <- train(trainData$classe ~ ., method = "rf", data = trainPC, trControl = trainControl(method = "cv", number = 4), importance = TRUE)
+```
+
+Relative importance of principal components
+
+```{r, fig.height=10, fig.width=10}
+varImpPlot(modelFit$finalModel, sort = TRUE, main = "Relative importance")
+```
+
+## Validation
+
+Result below shows that model is 97% accurate against the validation data.
+
+```{r}
+confusionM <- confusionMatrix(validationData$classe, predict(modelFit, validationPC))
+confusionM
+```
+
+## Test
+
+We apply our model to test data and get the results below
+
+```{r}
+result <-predict(modelFit,testPC)
+result
+```
+
