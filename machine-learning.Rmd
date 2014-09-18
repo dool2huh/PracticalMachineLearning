@@ -1,6 +1,6 @@
 ---
 title: "Machine Learning Project"
-output: html_document
+output: pdf_document
 ---
 
 ## Background
@@ -74,13 +74,19 @@ Relative importance of principal components
 varImpPlot(modelFit$finalModel, sort = TRUE, main = "Relative importance")
 ```
 
-## Validation
+## Cross Validation and Out of Sammple Error
 
 Result below shows that model is 97% accurate against the validation data.
 
 ```{r}
 confusionM <- confusionMatrix(validationData$classe, predict(modelFit, validationPC))
 confusionM
+```
+
+out of sample error is about 0.027
+```{r}
+error <- 1 - as.numeric(confusionM$overall[1]);
+error
 ```
 
 ## Test
